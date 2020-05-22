@@ -35,13 +35,14 @@ package VSTypes;
 		{
 			logic [31:0]	result;
 			logic			valid;
+			logic [4:0]		pointerRegId;
 		} ResultBufferEntryType;
 
 		typedef struct packed
 		{
 			logic valid;
 			logic skipType;
-			logic [4:0] PointerRegId;
+			logic [4:0] pointerRegId;
 			logic rs2_IgnoreFlag;
 			logic [RESULT_BUFFER_ID_SIZE-1:0] rs1_RB_Idx;
 			logic [RESULT_BUFFER_ID_SIZE-1:0] rs2_RB_Idx;
@@ -53,7 +54,7 @@ package VSTypes;
 		'{
 			valid			:	'0,
 			skipType		:	'0,
-			PointerRegId	:	'{default: '0},
+			pointerRegId	:	'{default: '0},
 			rs2_IgnoreFlag	:	'0,
 			rs1_RB_Idx		:	'{default: '0},
 			rs2_RB_Idx		:	'{default: '0},
@@ -112,6 +113,14 @@ package VSTypes;
 			//	VsOP-FP == OP-FP
 			//	funct5[31:27] fmt2[26:25] rs2[24:20] rs1[19:15] RM[14:12] rd[11:7] opcode[6:0] = 'b101_1011
 		
+
+
+
+	////    Instructions    ////
+	
+		const logic	[6:0]	PTRINC 	= 'h1;
+		const logic [6:0]	LOAD 	= 'h4;
+		const logic [6:0]	COMPUTE	= 'h8;
 
 endpackage
 

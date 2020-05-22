@@ -28,7 +28,13 @@ module IFetchModule (
 	output	logic				rs1_RB_ReadEn,
 	output	logic				rs2_RB_ReadEn,
 
-	output	SkipTableEntryType	SkipEntryOut
+	output	logic				SkipEnOut,
+	output	SkipTableEntryType	SkipEntryOut,
+	output	logic				IsRefElemOut,
+
+	input	logic				RefElemWrEnIn,
+	input	logic				RefElemWrFlagIn,
+	input	logic	[4:0]		RefElemWrIdxIn
 );
 
 
@@ -59,9 +65,17 @@ module IFetchModule (
 		addr32b	skipTargetPC;
 		addr32b nextPC;
 
+		logic 	rs1WasSkipped;
+		logic	rs2WasSkipped;
+		logic	rs1WasRefElem;
+		logic	rs2WasRefElem;
+
 	////    Assignments    ////
 
-		assign NextPCOut = nextPC;
+		assign NextPCOut 	= nextPC;
+
+		assign SkipEnOut 	= skipEn;
+		assign SkipEntryOut	= skipEntry;
 
 	
 	////    Table Write    ////
@@ -103,7 +117,7 @@ module IFetchModule (
 						'h1:	begin
 									SkipTable[tblWrIdx].valid 			<= WriteDataIn[31];
 									SkipTable[tblWrIdx].skipType 		<= WriteDataIn[30];
-									SkipTable[tblWrIdx].PointerRegId 	<= WriteDataIn[29:25];
+									SkipTable[tblWrIdx].pointerRegId 	<= WriteDataIn[29:25];
 									SkipTable[tblWrIdx].rs2_IgnoreFlag 	<= WriteDataIn[24];
 
 									SkipTable[tblWrIdx].rs1_RB_Idx 		<= WriteDataIn[23:20];
@@ -171,11 +185,8 @@ module IFetchModule (
 		assign skipStatus 	= SkipStatusTable[camHitIdx];
 		assign skipType 	= SkipTable[camHitIdx].skipType;
 
-		assign ptrRegVSb 	= RfPtr_SimReg[skipEntry.PointerRegId];
+		assign ptrRegVSb 	= RfPtr_SimReg[skipEntry.pointerRegId];
 
-		
-		assign rs1WasSkipped = SkipStatusTable[skipEntry.rs1_RB_Idx];
-		assign rs2WasSkipped = SkipStatusTable[skipEntry.rs2_RB_Idx];
 
 		always_comb begin
 			if (AsyncResetIn == 0) begin
@@ -193,7 +204,7 @@ module IFetchModule (
 							if (skipEntry.rs2_IgnoreFlag == 1) begin 
 								skipEn <= 1;
 							end else begin
-								if (rs2WasSkipped == 1 && RB_ValidIn[skipEntry.rs2_RB_Idx]) begin
+								if (rs2WasSkipped == 1 && RB_ValidIn[skipEntry.rs2_RB_Idx] == 1) begin
 									skipEn <= 1;
 								end else begin
 									skipEn <= 0;
@@ -216,16 +227,22 @@ module IFetchModule (
 		assign rs1_RB_ReadEn	= skipEn;
 		assign rs2_RB_ReadEn	= (skipEntry.skipType == SkipTypeCompute) ? skipEn : 0;
 
-		assign SkipEntryOut		= skipEntry;
-
 
 	////    Write SkipStatusTable    ////
+
+
+		assign rs1WasSkipped = SkipStatusTable[skipEntry.rs1_RB_Idx].InstrSkipSts;
+		assign rs2WasSkipped = SkipStatusTable[skipEntry.rs2_RB_Idx].InstrSkipSts;
+
+		assign rs1WasRefElem = SkipStatusTable[skipEntry.rs1_RB_Idx].IsRefElem;
+		assign rs2WasRefElem = SkipStatusTable[skipEntry.rs2_RB_Idx].IsRefElem;
+
 
 		always_ff @(posedge ClockIn) begin
 			if(AsyncResetIn == 0) begin
 				for (int i = 0; i < SKIP_TABLE_SIZE; i++) begin
 					SkipStatusTable[i].InstrSkipSts <= 0;
-					SkipStatusTable[i].IsRefElem 	<= 0;
+					// SkipStatusTable[i].IsRefElem 	<= 0;
 				end
 			end else begin
 				if (camHit == 1) begin
@@ -233,6 +250,20 @@ module IFetchModule (
 				end
 			end
 		end
+
+		always_ff @(posedge ClockIn) begin
+			if(AsyncResetIn == 0) begin
+				for (int i = 0; i < SKIP_TABLE_SIZE; i++) begin
+					SkipStatusTable[i].IsRefElem <= 0;
+				end
+			end else begin
+				if (RefElemWrEnIn == 1) begin
+					SkipStatusTable[RefElemWrIdxIn].IsRefElem <= RefElemWrFlagIn;
+				end
+			end
+		end
+
+		assign IsRefElemOut = (rs1WasRefElem == 1 && rs2WasRefElem == 1) ? 1 : 0;
 
 	
 endmodule
